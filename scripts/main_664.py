@@ -11,12 +11,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, URL
 
 #########################################################
+# Configuração de logging
+#########################################################
 
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)s] %(message)s",
 )
 
+#########################################################
+# Infra: carregar .env e criar engine
 #########################################################
 
 def load_env(env_path: Optional[Path] = None) -> None:
@@ -43,6 +47,7 @@ def get_engine() -> Engine:
             "Verificar as credenciais do arquivo .env"
         )
 
+    # Usa URL.create para escapar senha com #, @ etc.
     url_object = URL.create(
         drivername="postgresql+psycopg2",
         username=user,
@@ -60,6 +65,10 @@ def get_engine() -> Engine:
     engine = create_engine(url_object)
     return engine
 
+#########################################################
+# Detecção da linha de cabeçalho real
+#########################################################
+
 def detectar_linha_cabecalho(path_csv: Path) -> int:
     """
     Varre o arquivo até encontrar a linha de cabeçalho da tabela,
@@ -69,7 +78,7 @@ def detectar_linha_cabecalho(path_csv: Path) -> int:
     """
     with path_csv.open("r", encoding="latin1") as f:
         for idx, line in enumerate(f):
-            if line.startswith("Conta;Loc VHF;Autorização;"):
+            if line.startswith("id;tipo;nome;"):
                 return idx
 
     logging.warning(
@@ -77,6 +86,10 @@ def detectar_linha_cabecalho(path_csv: Path) -> int:
         path_csv.name,
     )
     return 0
+
+#########################################################
+# Leitura dos CSV (sem limpeza de linhas)
+#########################################################
 
 def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
     logging.info("Lendo arquivo (sem filtros): %s", path_csv)
@@ -100,34 +113,20 @@ def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
     )
 
     col_map = {
-        "Conta": "conta",
-        "Loc VHF": "loc_vhf",
-        "Autorização": "autorizacao",
-        "Cliente": "cliente",
-        "Data Nasc": "data_nasc",
-        "Endereço": "endereco",
-        "Cidade": "cidade",
-        "Celular": "celular",
-        "Telefone": "telefone",
-        "Email": "email",
-        "Agencia": "agencia",
-        "Data": "data",
-        "Criado": "criado",
-        "Qtd": "qtd",
-        "Produto": "produto",
-        "Un.": "un",
-        "Total": "total",
-        "Status": "status",
-        "Entregue": "entregue",
-        "Forma de Pagamento": "forma_de_pagamento",
-        "Usuário": "usuario",
-        "Data Utilização": "data_utilizacao",
-        "Data Baixa": "data_baixa",
-        "NSU": "nsu",
-        "Quantidade de Parcelas": "quantidade_parcelas",
-        "Prazo estimado do recebimento": "prazo_estimado_recebimento",
-        "Pedido Esolution": "pedido_esolution",
-        "Data Integração": "data_integracao",
+        'Id': 'id'
+        'Tipo': 'tipo'
+        'Nome': 'nome'
+        'Data Venda': 'data_venda'
+        'Checkin':'checkin'
+        'Checkout':'checkout'
+        'Valor': 'valor'
+        'Cupom': 'cupom'
+        'Nome do Cupom': 'nome_do_cupom'
+        'Status': 'status'
+        'Percentual de Desconto': 'percentual_de_desconto'
+        'Produtos aplicados': 'produtos_aplicados'
+        'Data inicial de utilização': 'data_inicial_utilizacao'
+        'data_final_utilizacao'         
     }
 
     df = df.rename(columns=col_map)
@@ -161,6 +160,10 @@ def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
         logging.warning("Coluna 'criado' não encontrada no arquivo %s", path_csv.name)
 
     return df
+
+#########################################################
+# Carga dos arquivos no PostgreSQL
+#########################################################
 
 def carregar_arquivos_para_postgres(
     engine: Engine,
@@ -227,19 +230,23 @@ def carregar_arquivos_para_postgres(
         total_registros,
     )
 
+#########################################################
+# Ponto de entrada
+#########################################################
+
 def main() -> None:
     load_env()
     engine = get_engine()
-    csv_base_path = os.getenv("CSV_182_PATH")
+    csv_base_path = os.getenv("CSV_BASE_PATH")
     if not csv_base_path:
         raise RuntimeError(
-            "Variável CSV_182_PATH não definida no .env. "
-            "Informe o caminho da pasta novaxs_182."
+            "Variável CSV_BASE_PATH não definida no .env. "
+            "Informe o caminho da pasta novaxs_270."
         )
     
     csv_dir = Path(csv_base_path)
 
-    table_name = "novaxs_182_raw"
+    table_name = "novaxs_270_raw"
     # sua tabela está em stg, então deixo stg como default
     schema = os.getenv("DB_SCHEMA", "stg")
 
@@ -249,6 +256,7 @@ def main() -> None:
         table_name=table_name,
         schema=schema,
     )
+
 
 if __name__ == "__main__":
     main()
