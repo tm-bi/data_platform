@@ -10,14 +10,14 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, URL
 
-#########################################################
+#-------------------------------------------------------------------------------
 
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)s] %(message)s",
 )
 
-#########################################################
+#-------------------------------------------------------------------------------
 
 def load_env(env_path: Optional[Path] = None) -> None:
     if env_path is None:
@@ -29,6 +29,7 @@ def load_env(env_path: Optional[Path] = None) -> None:
     load_dotenv(dotenv_path=env_path)
     logging.info("Variáveis de ambiente carregadas de %s", env_path)
 
+#-------------------------------------------------------------------------------
 
 def get_engine() -> Engine:
     host = os.getenv("PG_HOST")
@@ -60,13 +61,9 @@ def get_engine() -> Engine:
     engine = create_engine(url_object)
     return engine
 
+#-------------------------------------------------------------------------------
+
 def detectar_linha_cabecalho(path_csv: Path) -> int:
-    """
-    Varre o arquivo até encontrar a linha de cabeçalho da tabela,
-    que começa com 'Conta;Autorização;Cliente;'.
-    Retorna o índice (0-based) dessa linha.
-    Se não encontrar, assume cabeçalho na primeira linha (0).
-    """
     with path_csv.open("r", encoding="latin1") as f:
         for idx, line in enumerate(f):
             if line.startswith("Conta;Loc VHF;Autorização;"):
@@ -77,6 +74,8 @@ def detectar_linha_cabecalho(path_csv: Path) -> int:
         path_csv.name,
     )
     return 0
+
+#-------------------------------------------------------------------------------
 
 def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
     logging.info("Lendo arquivo (sem filtros): %s", path_csv)
@@ -136,18 +135,13 @@ def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
 
     if "criado" in df.columns:
         linhas_antes = len(df)
-
-        # Série original (mantém NaN)
         criado_raw = df["criado"]
-
-        # Série em string, para tratar espaços, [NULL], etc.
-        criado_str = criado_raw.astype(str).str.strip()
-
+        criado_str = criado_raw.astype(str).str.strip() #para tratar null
         mask_invalid = (
-            criado_raw.isna() |                          # NaN / valores nulos reais
-            (criado_str == "") |                        # vazio depois de strip
-            (criado_str.str.upper() == "[NULL]") |      # texto literal [NULL]
-            (criado_str.str.upper() == "NULL")          # texto literal NULL
+            criado_raw.isna() |  # NaN / valores nulos reais
+            (criado_str == "") |
+            (criado_str.str.upper() == "[NULL]") |
+            (criado_str.str.upper() == "NULL")
         )
 
         df = df[~mask_invalid].copy()
@@ -161,6 +155,8 @@ def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
         logging.warning("Coluna 'criado' não encontrada no arquivo %s", path_csv.name)
 
     return df
+
+#-------------------------------------------------------------------------------
 
 def carregar_arquivos_para_postgres(
     engine: Engine,
@@ -218,7 +214,7 @@ def carregar_arquivos_para_postgres(
                 csv_file.name,
                 exc,
             )
-            raise  # falha rápido pra gente ver o erro real
+            raise 
 
     logging.info(
         "Processo concluído. Total de registros inseridos em %s.%s: %d",
@@ -226,6 +222,8 @@ def carregar_arquivos_para_postgres(
         table_name,
         total_registros,
     )
+
+#-------------------------------------------------------------------------------
 
 def main() -> None:
     load_env()
@@ -240,7 +238,7 @@ def main() -> None:
     csv_dir = Path(csv_base_path)
 
     table_name = "novaxs_182_raw"
-    # sua tabela está em stg, então deixo stg como default
+
     schema = os.getenv("DB_SCHEMA", "stg")
 
     carregar_arquivos_para_postgres(
@@ -249,6 +247,8 @@ def main() -> None:
         table_name=table_name,
         schema=schema,
     )
+
+#-------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()

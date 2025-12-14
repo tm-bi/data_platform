@@ -66,7 +66,7 @@ def get_engine() -> Engine:
 def detectar_linha_cabecalho(path_csv: Path) -> int:
     with path_csv.open("r", encoding="latin1") as f:
         for idx, line in enumerate(f):
-            if line.startswith("Conta;Autorização;Cliente;"):
+            if line.startswith("Conta;Data;Data Visita;"):
                 return idx
 
     logging.warning(
@@ -100,30 +100,16 @@ def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
 
     col_map = {
         "Conta": "conta",
-        "Autorização": "autorizacao",
-        "Cliente": "cliente",
-        "Endereço": "endereco",
-        "Cidade": "cidade",
-        "Celular": "celular",
-        "Telefone": "telefone",
-        "Email": "email",
-        "Agencia": "agencia",
-        "Data": "data",
-        "Criado": "criado",
+        "Data" : "data",
+        "Data Visita": "data_visita",
         "Qtd": "qtd",
-        "Produto": "produto",
-        "Un.": "un",
-        "Total": "total",
-        "Status": "status",
-        "Entregue": "entregue",
-        "Forma de Pagamento": "forma_de_pagamento",
-        "Usuário": "usuario",
-        "Data Utilização": "data_utilizacao",
-        "Hora Utilização": "hora_utilizacao",
-        "NSU": "nsu",
-        "Quantidade de Parcelas": "quantidade_de_parcelas",
-        "Prazo estimado do recebimento": "prazo_estimado_do_recebimento",
-        "Data Encerramento": "data_encerramento",
+        "Valor": "valor",
+        "Produtos-Carrinho": "produtos_carrinho",
+        "Pessoa": "pessoa",
+        "Email": "email",
+        "Telefone": "telefone",
+        "Cidade": "cidade",
+        "Motivo": "motivo",
     }
 
     df = df.rename(columns=col_map)
@@ -230,16 +216,16 @@ def carregar_arquivos_para_postgres(
 def main() -> None:
     load_env()
     engine = get_engine()
-    csv_base_path = os.getenv("CSV_BASE_PATH")
+    csv_base_path = os.getenv("CSV_418_PATH")
     if not csv_base_path:
         raise RuntimeError(
             "Variável CSV_BASE_PATH não definida no .env. "
-            "Informe o caminho da pasta novaxs_270."
+            "Informe o caminho da pasta novaxs_418."
         )
     
     csv_dir = Path(csv_base_path)
 
-    table_name = "novaxs_270_raw"
+    table_name = "novaxs_418_raw"
 
     schema = os.getenv("DB_SCHEMA", "stg")
 

@@ -10,18 +10,14 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, URL
 
-#########################################################
-# Configuração de logging
-#########################################################
+#-------------------------------------------------------------------------------
 
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s] [%(levelname)s] %(message)s",
 )
 
-#########################################################
-# Infra: carregar .env e criar engine
-#########################################################
+#-------------------------------------------------------------------------------
 
 def load_env(env_path: Optional[Path] = None) -> None:
     if env_path is None:
@@ -65,20 +61,12 @@ def get_engine() -> Engine:
     engine = create_engine(url_object)
     return engine
 
-#########################################################
-# Detecção da linha de cabeçalho real
-#########################################################
+#-------------------------------------------------------------------------------
 
 def detectar_linha_cabecalho(path_csv: Path) -> int:
-    """
-    Varre o arquivo até encontrar a linha de cabeçalho da tabela,
-    que começa com 'Conta;Autorização;Cliente;'.
-    Retorna o índice (0-based) dessa linha.
-    Se não encontrar, assume cabeçalho na primeira linha (0).
-    """
     with path_csv.open("r", encoding="latin1") as f:
         for idx, line in enumerate(f):
-            if line.startswith("id;tipo;nome;"):
+            if line.startswith("Id;Tipo;Nome;"): 
                 return idx
 
     logging.warning(
@@ -87,9 +75,7 @@ def detectar_linha_cabecalho(path_csv: Path) -> int:
     )
     return 0
 
-#########################################################
-# Leitura dos CSV (sem limpeza de linhas)
-#########################################################
+#-------------------------------------------------------------------------------
 
 def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
     logging.info("Lendo arquivo (sem filtros): %s", path_csv)
@@ -113,57 +99,51 @@ def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
     )
 
     col_map = {
-        'Id': 'id'
-        'Tipo': 'tipo'
-        'Nome': 'nome'
-        'Data Venda': 'data_venda'
-        'Checkin':'checkin'
-        'Checkout':'checkout'
-        'Valor': 'valor'
-        'Cupom': 'cupom'
-        'Nome do Cupom': 'nome_do_cupom'
-        'Status': 'status'
-        'Percentual de Desconto': 'percentual_de_desconto'
-        'Produtos aplicados': 'produtos_aplicados'
-        'Data inicial de utilização': 'data_inicial_utilizacao'
-        'data_final_utilizacao'         
+        'Id': 'id',
+        'Tipo': 'tipo',
+        'Nome': 'nome',
+        'Data Venda': 'data_venda',
+        'Checkin':'checkin',
+        'Checkout':'checkout',
+        'Valor': 'valor',
+        'Cupom': 'cupom',
+        'Nome do Cupom': 'nome_do_cupom',
+        'Status': 'status',
+        'Percentual de Desconto': 'percentual_de_desconto',
+        'Produtos aplicados': 'produtos_aplicados',
+        'Data inicial de utilização': 'data_inicial_utilizacao',
+        'Data final de utilização':'data_final_utilizacao',   
     }
 
     df = df.rename(columns=col_map)
 
     logging.info("Colunas do DataFrame após rename: %s", list(df.columns))
 
-    if "criado" in df.columns:
-        linhas_antes = len(df)
+    # if "criado" in df.columns:
+    #     linhas_antes = len(df)
+    #     criado_raw = df["criado"]
+    #     criado_str = criado_raw.astype(str).str.strip()
 
-        # Série original (mantém NaN)
-        criado_raw = df["criado"]
+    #     mask_invalid = (
+    #         criado_raw.isna() | # NaN / valores nulos reais
+    #         (criado_str == "") |
+    #         (criado_str.str.upper() == "[NULL]") |
+    #         (criado_str.str.upper() == "NULL")
+    #     )
 
-        # Série em string, para tratar espaços, [NULL], etc.
-        criado_str = criado_raw.astype(str).str.strip()
+    #     df = df[~mask_invalid].copy()
 
-        mask_invalid = (
-            criado_raw.isna() |                          # NaN / valores nulos reais
-            (criado_str == "") |                        # vazio depois de strip
-            (criado_str.str.upper() == "[NULL]") |      # texto literal [NULL]
-            (criado_str.str.upper() == "NULL")          # texto literal NULL
-        )
-
-        df = df[~mask_invalid].copy()
-
-        linhas_depois = len(df)
-        logging.info(
-            "Linhas removidas por Criado nulo/vazio/[NULL]/NULL: %d",
-            linhas_antes - linhas_depois,
-        )
-    else:
-        logging.warning("Coluna 'criado' não encontrada no arquivo %s", path_csv.name)
+    #     linhas_depois = len(df)
+    #     logging.info(
+    #         "Linhas removidas por Criado nulo/vazio/[NULL]/NULL: %d",
+    #         linhas_antes - linhas_depois,
+    #     )
+    # else:
+    #     logging.warning("Coluna 'criado' não encontrada no arquivo %s", path_csv.name)
 
     return df
 
-#########################################################
-# Carga dos arquivos no PostgreSQL
-#########################################################
+#-------------------------------------------------------------------------------
 
 def carregar_arquivos_para_postgres(
     engine: Engine,
@@ -221,7 +201,7 @@ def carregar_arquivos_para_postgres(
                 csv_file.name,
                 exc,
             )
-            raise  # falha rápido pra gente ver o erro real
+            raise  
 
     logging.info(
         "Processo concluído. Total de registros inseridos em %s.%s: %d",
@@ -230,23 +210,21 @@ def carregar_arquivos_para_postgres(
         total_registros,
     )
 
-#########################################################
-# Ponto de entrada
-#########################################################
+#-------------------------------------------------------------------------------
 
 def main() -> None:
     load_env()
     engine = get_engine()
-    csv_base_path = os.getenv("CSV_BASE_PATH")
+    csv_base_path = os.getenv("CSV_664_PATH")
     if not csv_base_path:
         raise RuntimeError(
-            "Variável CSV_BASE_PATH não definida no .env. "
-            "Informe o caminho da pasta novaxs_270."
+            "Variável CSV_664_PATH não definida no .env. "
+            "Informe o caminho da pasta novaxs_664."
         )
     
     csv_dir = Path(csv_base_path)
 
-    table_name = "novaxs_270_raw"
+    table_name = "novaxs_664_raw"
     # sua tabela está em stg, então deixo stg como default
     schema = os.getenv("DB_SCHEMA", "stg")
 
@@ -257,6 +235,7 @@ def main() -> None:
         schema=schema,
     )
 
+#-------------------------------------------------------------------------------
 
 if __name__ == "__main__":
     main()
