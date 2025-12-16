@@ -1,5 +1,5 @@
 
-#Dicionário do padrão das abreviações
+# Dicionário do padrão das abreviações /n
 Este documento tem como objetivo orientar e padronizar as abreviações nas estruturas das bases de dados, normalmente tratada na camada Silver Transacional, isto é, Data de Utilização será dt_utilizacao, por exemplo.
 
 ## Tabela das abreviações
