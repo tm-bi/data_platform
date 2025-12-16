@@ -89,6 +89,8 @@ def ler_csv_tratado(path_csv: Path) -> pd.DataFrame:
         encoding="latin1",
         skiprows=skiprows,
         dtype=str,
+        keep_default_na=False,  # não converte "" em NaN
+        na_filter=False,        # desliga detecção de NA (mais “raw” ainda)
     )
 
     logging.info(
