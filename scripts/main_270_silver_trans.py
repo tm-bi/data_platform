@@ -103,10 +103,15 @@ def transform_270(df: pd.DataFrame, load_date_str: str) -> pd.DataFrame:
 
     df.rename(
         columns={
-            "un": "valor_un",
-            "total": "valor_total",
+            "un": "vlr_unit",
+            "total": "vlt_ttl",
             "quantidade_de_parcelas": "qtd_parcelas",
-            "prazo_estimado_do_recebimento": "prazo_estimado_recebimento",
+            "prazo_estimado_do_recebimento": "recebim_previsto",
+            "conta": "id_venda",
+            "forma_de_pagamento": "forma_pgto",
+            "data_utilizacao": "dt_utilizacao",
+            "hora_utilizacao": "hr_utilizacao",
+            "data_encerramento": "dt_encerramento"
         },
         inplace=True,
     )
@@ -138,8 +143,8 @@ def transform_270(df: pd.DataFrame, load_date_str: str) -> pd.DataFrame:
     # Timestamp "criado" -> data_venda + hora_venda
     if "criado" in df.columns:
         criado_ts = pd.to_datetime(df["criado"], format="%d/%m/%Y %H:%M:%S", errors="coerce")
-        df["data_venda"] = criado_ts.dt.date
-        df["hora_venda"] = criado_ts.dt.strftime("%H:%M:%S")
+        df["dt_venda"] = criado_ts.dt.date
+        df["hr_venda"] = criado_ts.dt.strftime("%H:%M:%S")
         df.drop(columns=["criado"], inplace=True)
 
     # Hora utilização
