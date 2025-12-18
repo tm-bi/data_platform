@@ -13,8 +13,3 @@ Este documento tem como objetivo orientar e padronizar as abreviações nas estr
 | nsu        | num sequencial único | usado para identificar transações com cartões de crédito |
 | hr         | hora                 | hora (hh:mm:ss)         |
 | vlr        | valor                | valor monetário ou numérico                    |
-
-
-/q
-q
-exit

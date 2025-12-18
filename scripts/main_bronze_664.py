@@ -26,10 +26,6 @@ def qident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 def sanitize_table_name(stem: str) -> str:
-    """
-    Garante que o nome vire um identificador válido no Postgres.
-    Ex.: '202511_270' ok. Se começar com número, vamos prefixar 't_'.
-    """
     s = stem.strip().lower().replace("\ufeff", "")
     s = re.sub(r"\s+", "_", s)
     s = re.sub(r"[^a-z0-9_]", "_", s)
@@ -83,10 +79,6 @@ def file_to_copy_csv(
     encoding: str,
     batch_id: str,
 ) -> Path:
-    """
-    Converte o arquivo (qualquer conteúdo) em um CSV temporário UTF-8 com:
-    line_no,raw_line,_source_file,_batch_id
-    """
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".csv")
     tmp_path = Path(tmp.name)
     tmp.close()
@@ -145,7 +137,7 @@ def main() -> None:
     )
 
     base_path = Path(os.environ["CSV_664_PATH"]).resolve()
-    schema = "_bronze"  # fixo conforme seu padrão
+    schema = "_bronze"  
     write_mode = os.environ.get("WRITE_MODE", "append").strip().lower()
 
     if not base_path.exists():
@@ -168,7 +160,7 @@ def main() -> None:
         ensure_schema(conn, schema)
 
         for fp in files:
-            table = sanitize_table_name(fp.stem)  # ex.: 202511_270 -> t_202511_270 (se começar com número)
+            table = sanitize_table_name(fp.stem)
             encoding = detect_encoding(fp)
 
             if write_mode == "overwrite":
