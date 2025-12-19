@@ -1,0 +1,15 @@
+#Dicionário do padrão das abreviações
+Este documento tem como objetivo orientar e padronizar as abreviações nas estruturas das bases de dados, normalmente tratada na camada Silver Transacional, isto é, Data de Utilização será dt_utilizacao, por exemplo.
+
+## Tabela das abreviações
+
+| Abreviação | Nome                 | Descrição                                      |
+|------------|----------------------|------------------------------------------------|
+| qtd        | quantidade           | quantidade de itens                            |
+| dt         | data                 | data (dd/MM/yyyy ou yyyy-MM-dd                 |
+| vlr        | valor        | valor monetário ou numérico                    |
+| pgto       | pagamento            | forma de pagamento ou data de pagamento        |
+| num        | número               | identificador ex. num_sequencia                |
+| nsu        | num sequencial único | usado para identificar transações com cartões de crédito |
+| hr         | hora                 | hora (hh:mm:ss)         |
+| vlr        | valor                | valor monetário ou numérico                    |
