@@ -1,0 +1,49 @@
+
+        SELECT
+            T.DTVENDA AS DT_HR_VOUCHER,
+            B.DATA as data_acesso,
+            T.NRVOUCHER,
+            VP.QRCODE,
+            VP.DTBAIXA,
+            B.DATA AS DATA_VENDA_BILHETERIA,
+            B.HORA AS HORA_VENDA_BILHETERIA,
+            B.PONTO_VENDA,
+            GB.CODIGO AS CODIGO_GRUPO,
+            GB.NOME AS NOME_GRUPO,
+            CB.TIPO_BILHETE,
+            CB.CODIGO AS CODIGO_BILHETE,
+            CB.NOME AS BILHETE,
+            CC.NOME AS CATEGORIA,
+            GB.NOME AS TIPO,
+            I.QUANTIDADE AS QTDE,
+            I.VLR_UNITARIO
+        FROM BCA_BILHETE B
+        JOIN BCA_BILHETE_ITEM I 
+            ON I.EMPRESA = B.EMPRESA 
+            AND I.CODIGO = B.CODIGO
+        LEFT JOIN BCA_BILHETE_ITEM_CARTAO IC
+            ON IC.EMPRESA = I.EMPRESA 
+            AND IC.CODIGO = I.CODIGO 
+            AND IC.SEQUENCIA = I.SEQUENCIA
+        LEFT JOIN TBVENVENDASPRODUTOS VP 
+            ON VP.EMPRESA = I.EMPRESA 
+            AND VP.IDVENDA = I.VOUCHER 
+            AND VP.SEQUENCIA = I.VOUCHER_SEQ
+        LEFT JOIN TBVENVENDAS T 
+            ON T.EMPRESA = VP.EMPRESA 
+            AND T.IDVENDA = VP.IDVENDA
+        LEFT JOIN BCA_CAD_BILHETE CB 
+            ON CB.EMPRESA = I.EMPRESA 
+            AND CB.CODIGO = I.BILHETE
+        LEFT JOIN BCA_CAD_CATEGORIA CC 
+            ON CC.EMPRESA = I.EMPRESA 
+            AND CC.CODIGO = I.CATEGORIA
+        LEFT JOIN BCA_CAD_GRUPO GB 
+            ON GB.EMPRESA = CB.EMPRESA 
+            AND GB.CODIGO = CB.GRUPO
+        WHERE
+            B.EMPRESA = 1
+            AND B.DATA BETWEEN '2025-01-01' AND '2025-12-31'
+            AND COALESCE(B.CANCELADO, 'N') = 'N'
+            AND IC.STATUS = 1
+        
