@@ -8,7 +8,6 @@ from _bootstrap import setup_sys_path
 
 setup_sys_path()
 
-# ajuste o import conforme seu PYTHONPATH / modo de execução
 from common.settings import settings
 
 def test_postgres() -> None:
@@ -22,7 +21,6 @@ def test_postgres() -> None:
 
 def test_firebird() -> None:
     print("[FIREBIRD] conectando...")
-    # Firebird: DSN no formato host/port:path (ou host:path se não usar porta custom)
     dsn = f"{settings.firebird_host}/{settings.firebird_port}:{settings.firebird_db}"
 
     try: 
@@ -36,8 +34,11 @@ def test_firebird() -> None:
             cur.execute("select 1 from rdb$database;")
             val = cur.fetchone()[0]
         print(f"[FIREBIRD] OK (select 1 => {val})")
-    except:
-        print("não funcionou")          
+    except Exception as exc:
+        print("\n[ERRO] FIREBIRD falhou.")
+        print(f"Tipo: {type(exc).__name__}")
+        print(f"Detalhe: {exc}")
+        
 
 def test_mssql() -> None:
     print("[MSSQL] conectando...")
