@@ -63,8 +63,8 @@ def test_mssql() -> None:
 
 def main() -> int:
     try:
-        test_postgres()
-        test_firebird()
+        #test_postgres()
+        #test_firebird()
         test_mssql()
     except Exception as exc:
         print("\n[ERRO] falhou algum teste de conexão.")

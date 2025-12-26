@@ -19,7 +19,7 @@ def upsert_watermark(
     Atualiza a tabela de controle etl_watermark.
     """
     sql = """
-        INSERT INTO stg.etl_watermark (source_system, entity, last_value)
+        INSERT INTO _bronze.etl_watermark (source_system, entity, last_value)
         VALUES (%s, %s, %s)
         ON CONFLICT (source_system, entity)
         DO UPDATE
@@ -39,7 +39,7 @@ def load_limber_rows(rows: Iterable[LimberRow]) -> int:
     garantindo idempotência por NRVOUCHER.
     """
     insert_sql = """
-        INSERT INTO stg.limber_acessos_raw (nrvoucher, payload)
+        INSERT INTO _bronze.limber_acessos_raw (nrvoucher, payload)
         VALUES (%s, %s::jsonb)
         ON CONFLICT (nrvoucher) DO NOTHING;
     """
