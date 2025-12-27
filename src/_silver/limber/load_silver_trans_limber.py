@@ -9,50 +9,73 @@ from common.settings import settings
 BRONZE_TO_SILVER_SQL = """
 insert into "_silver-transacional".s_limber_acesso (
   id_acesso,
-  data_acesso,
+  dt_acesso_sys,
+
   dt_hr_voucher,
-  qrcode,
-  dtbaixa,
-  ponto_venda,
-  codigo_grupo,
+  dt_voucher,
+  hr_voucher,
+
+  num_ingresso,
+
+  dt_hr_baixa,
+  dt_entrada,
+  hr_entrada,
+
+  terminal_entrada,
+  cod_grupo,
   nome_grupo,
+
   tipo_bilhete,
-  codigo_bilhete,
-  bilhete,
+  cod_bilhete,
+  tipo_ingresso,
   categoria,
   tipo,
-  qtde,
-  vlr_unitario,
+
+  qtd,
+  vlr_unit,
+
   src_nrvoucher,
   bronze_extracted_at,
   payload
 )
 select
   b.nrvoucher as id_acesso,
-  nullif(b.payload->>'DATA_ACESSO','')::date as data_acesso,
+
+  nullif(b.payload->>'DATA_ACESSO','')::date as dt_acesso_sys,
+
   nullif(b.payload->>'DT_HR_VOUCHER','')::timestamp as dt_hr_voucher,
-  b.payload->>'QRCODE' as qrcode,
-  nullif(b.payload->>'DTBAIXA','')::timestamp as dtbaixa,
-  b.payload->>'PONTO_VENDA' as ponto_venda,
-  b.payload->>'CODIGO_GRUPO' as codigo_grupo,
+  (nullif(b.payload->>'DT_HR_VOUCHER','')::timestamp)::date as dt_voucher,
+  (nullif(b.payload->>'DT_HR_VOUCHER','')::timestamp)::time as hr_voucher,
+
+  b.payload->>'QRCODE' as num_ingresso,
+
+  nullif(b.payload->>'DTBAIXA','')::timestamp as dt_hr_baixa,
+
+  -- regra escolhida: acesso = baixa
+  (nullif(b.payload->>'DTBAIXA','')::timestamp)::date as dt_entrada,
+  (nullif(b.payload->>'DTBAIXA','')::timestamp)::time as hr_entrada,
+
+  b.payload->>'PONTO_VENDA' as terminal_entrada,
+  b.payload->>'CODIGO_GRUPO' as cod_grupo,
   b.payload->>'NOME_GRUPO' as nome_grupo,
+
   b.payload->>'TIPO_BILHETE' as tipo_bilhete,
-  b.payload->>'CODIGO_BILHETE' as codigo_bilhete,
-  b.payload->>'BILHETE' as bilhete,
+  b.payload->>'CODIGO_BILHETE' as cod_bilhete,
+  b.payload->>'BILHETE' as tipo_ingresso,
   b.payload->>'CATEGORIA' as categoria,
   b.payload->>'TIPO' as tipo,
-  nullif(b.payload->>'QTDE','')::numeric as qtde,
-  nullif(b.payload->>'VLR_UNITARIO','')::numeric as vlr_unitario,
+
+  nullif(b.payload->>'QTDE','')::numeric as qtd,
+  nullif(b.payload->>'VLR_UNITARIO','')::numeric as vlr_unit,
+
   b.nrvoucher as src_nrvoucher,
   b.extracted_at as bronze_extracted_at,
   b.payload as payload
 from _bronze.limber_acessos_raw b
 left join "_silver-transacional".s_limber_acesso s
   on s.id_acesso = b.nrvoucher
-where s.id_acesso is null
-;
+where s.id_acesso is null;
 """
-
 
 def bronze_to_silver_trans_limber() -> int:
     """

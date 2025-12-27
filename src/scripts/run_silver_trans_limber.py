@@ -4,7 +4,7 @@ from _bootstrap import setup_sys_path
 
 setup_sys_path()
 
-from _silver.load_silver_trans_limber import bronze_to_silver_trans_limber
+from _silver.limber.load_silver_trans_limber import bronze_to_silver_trans_limber
 
 
 def main() -> int:

@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     mssql_trust_cert: str = "yes"
 
     app_tz: str = "America/Sao_Paulo"
+    quality_terminal_ids: str
+
 
     def pg_dsn(self) -> str:
         # psycopg3 DSN
@@ -56,5 +58,6 @@ class Settings(BaseSettings):
             f"user={self.pg_user} password={self.pg_password}"
         )
 
+    force_run: bool = False
 
 settings = Settings()
