@@ -24,6 +24,13 @@ from _bronze.quality.extract_quality import extract_quality
 from _bronze.quality.load_quality import load_quality_rows
 from _silver.quality.load_silver_trans_quality import bronze_to_silver_trans_quality
 from _silver.quality.load_silver_contexto_quality import silver_trans_to_silver_contexto_fato_quality
+from _gold.load_gold_fato_acessos import silver_contexto_to_gold_fato_acessos
+
+import traceback
+
+def log_exception(prefix: str, exc: Exception) -> None:
+    print(f"[{prefix}] ERRO: {type(exc).__name__}: {exc}")
+    print(traceback.format_exc())
 
 
 def now_local(tz: str) -> datetime:
@@ -83,6 +90,7 @@ def run_quality_pipeline(today: date) -> None:
     inserted_ctx = silver_trans_to_silver_contexto_fato_quality(source_file="sqlserver:quality")
     print(f"[QUALITY] Silver-contexto fato_acesso_quality: +{inserted_ctx}")
 
+
     # ---- métricas de validação (auditoria) ----
     with pg_connect(settings.pg_dsn()) as conn:
         with conn.cursor() as cur:
@@ -126,10 +134,35 @@ def main() -> int:
     today = now.date()
     print(f"[CODE3] Execução incremental (dia={today.isoformat()})")
 
-    # Importante: cada pipeline é independente; se quiser isolamento total por try/except,
-    # podemos colocar depois (boa prática em produção).
-    run_limber_pipeline(today)
-    run_quality_pipeline(today)
+    limber_ok = True
+    quality_ok = True
+
+    # ---- LIMBER ----
+    try:
+        run_limber_pipeline(today)
+    except Exception as exc:
+        limber_ok = False
+        log_exception("LIMBER", exc)
+
+    # ---- QUALITY ----
+    try:
+        run_quality_pipeline(today)
+    except Exception as exc:
+        quality_ok = False
+        log_exception("QUALITY", exc)
+
+    # ---- GOLD (auto-healing) ----
+    try:
+        inserted_gold = silver_contexto_to_gold_fato_acessos()
+        print(f"[GOLD] Inseridos em _gold.fato_acessos: +{inserted_gold}")
+    except Exception as exc:
+        log_exception("GOLD", exc)
+        # Gold falhar não impede retornar código != 0 se preferir; aqui vamos sinalizar falha.
+        return 2
+
+    if not limber_ok or not quality_ok:
+        print("[CODE3] Finalizado com falhas parciais (ver logs acima).")
+        return 1
 
     print("[CODE3] Finalizado com sucesso.")
     return 0
