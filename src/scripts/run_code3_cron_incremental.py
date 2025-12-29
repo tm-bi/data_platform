@@ -39,7 +39,7 @@ def now_local(tz: str) -> datetime:
 
 def within_daily_window(dt: datetime) -> bool:
     # Janela padrão: 07:00 <= agora <= 20:00
-    return time(7, 0, 0) <= dt.time() <= time(21, 0, 0)
+    return time(7, 0, 0) <= dt.time() <= time(20, 0, 0)
 
 
 def within_new_year_event_window(dt: datetime) -> bool:

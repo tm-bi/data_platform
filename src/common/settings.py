@@ -17,17 +17,18 @@ load_dotenv(_env_file())
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-    env_file=_env_file(),
+    #env_file=_env_file(), #funcionava com acessos
+    env_file="config/.env",
     env_file_encoding="utf-8",
     extra="ignore",
     )
 
     # PostgreSQL
-    pg_host: str
-    pg_port: int = 5432
-    pg_db: str
-    pg_user: str
-    pg_password: str
+    PG_HOST: str = "localhost"
+    PG_PORT: int = 5432
+    PG_DB: str = "postgres"
+    PG_USER: str
+    PG_PASSWORD: str
 
     # Firebird
     firebird_host: str
@@ -59,5 +60,7 @@ class Settings(BaseSettings):
         )
 
     force_run: bool = False
+
+
 
 settings = Settings()
