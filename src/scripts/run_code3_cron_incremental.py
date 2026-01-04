@@ -2,31 +2,33 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
+import traceback
 
-from _bootstrap import setup_sys_path
-from dotenv import load_dotenv
-from psycopg import connect as pg_connect
+from src._bootstrap import setup_sys_path
 
-setup_sys_path()
+setup_sys_path() 
 
-from common.settings import settings
+from common.settings import settings  # noqa: E402
 
 # LIMBER
-from _bronze.limber.extract_limber import extract_limber_snapshot
-from _bronze.limber.load_limber import load_limber_rows
-from _silver.limber.load_silver_trans_limber import bronze_to_silver_trans_limber
-from _silver.limber.load_silver_contexto_limber import (
+from _bronze.limber.extract_limber import extract_limber_snapshot  # noqa: E402
+from _bronze.limber.load_limber import load_limber_rows  # noqa: E402
+from _silver.limber.load_silver_trans_limber import bronze_to_silver_trans_limber  # noqa: E402
+from _silver.limber.load_silver_contexto_limber import (  # noqa: E402
     silver_trans_to_silver_contexto_fato_limber,
 )
 
-# QUALITY (somente bronze por enquanto)
-from _bronze.quality.extract_quality import extract_quality
-from _bronze.quality.load_quality import load_quality_rows
-from _silver.quality.load_silver_trans_quality import bronze_to_silver_trans_quality
-from _silver.quality.load_silver_contexto_quality import silver_trans_to_silver_contexto_fato_quality
-from _gold.load_gold_fato_acessos import silver_contexto_to_gold_fato_acessos
+# QUALITY
+from _bronze.quality.extract_quality import extract_quality  # noqa: E402
+from _bronze.quality.load_quality import load_quality_rows  # noqa: E402
+from _silver.quality.load_silver_trans_quality import bronze_to_silver_trans_quality  # noqa: E402
+from _silver.quality.load_silver_contexto_quality import (  # noqa: E402
+    silver_trans_to_silver_contexto_fato_quality,
+)
+from _gold.load_gold_fato_acessos import silver_contexto_to_gold_fato_acessos  # noqa: E402
 
-import traceback
+from psycopg import connect as pg_connect  # noqa: E402
+
 
 def log_exception(prefix: str, exc: Exception) -> None:
     print(f"[{prefix}] ERRO: {type(exc).__name__}: {exc}")
@@ -59,15 +61,104 @@ def should_run(dt: datetime) -> bool:
     return within_daily_window(dt) or within_new_year_event_window(dt)
 
 
+# -------------------------
+# CLIMA: controle de agenda
+# -------------------------
+CLIMA_RUN_HOURS_LOCAL = {8, 17}
+CLIMA_MINUTE_TOLERANCE = 10  # evita executar fora por pequenas variações do cron
+
+
+def should_run_clima(dt_local: datetime) -> bool:
+    """
+    Roda CLIMA somente por schedule (08:00 e 17:00 no fuso SP), com tolerância de minutos.
+    Se force_run=True, roda também.
+    """
+    if settings.force_run:
+        return True
+    if dt_local.hour not in CLIMA_RUN_HOURS_LOCAL:
+        return False
+    return 0 <= dt_local.minute <= CLIMA_MINUTE_TOLERANCE
+
+
+def run_clima_pipeline() -> None:
+    """
+    Pipeline CLIMA integrado, com imports lazy para não impactar LIMBER/QUALITY
+    quando CLIMA não for rodar.
+    Ordem: Bronze -> Silver -> Gold (auto-healing dentro da execução).
+    """
+    print("[CLIMA] Início")
+
+    # Imports lazy (só carrega módulos Selenium/BS4 quando necessário)
+    from _bronze.clima.accuweather.extract_accuweather import extract_accuweather
+    from _bronze.clima.accuweather.load_accuweather import load_accuweather
+    from _bronze.clima.climatempo.extract_climatempo import extract_climatempo
+    from _bronze.clima.climatempo.load_climatempo import load_climatempo
+
+    from _silver.clima.load_silver_trans_clima import load_silver_trans_clima
+    from _silver.clima.load_silver_contexto_clima import load_silver_contexto_clima
+
+    from _gold.clima.load_gold_clima_consolidado import load_gold_clima_consolidado
+
+    clima_ok = True
+
+    # Bronze AccuWeather
+    try:
+        rows = extract_accuweather()
+        inserted = load_accuweather(rows)
+        print(f"[CLIMA][Bronze] AccuWeather: +{inserted}")
+    except Exception as exc:
+        clima_ok = False
+        log_exception("CLIMA-BRONZE-ACCU", exc)
+
+    # Bronze Climatempo
+    try:
+        rows = extract_climatempo()
+        inserted = load_climatempo(rows)
+        print(f"[CLIMA][Bronze] Climatempo: +{inserted}")
+    except Exception as exc:
+        clima_ok = False
+        log_exception("CLIMA-BRONZE-CLIMA", exc)
+
+    # Silver trans/contexto (auto-healing)
+    try:
+        inserted_trans = load_silver_trans_clima(since_ingested_at=None)
+        print(f"[CLIMA][Silver-Trans] +{inserted_trans}")
+    except Exception as exc:
+        clima_ok = False
+        log_exception("CLIMA-SILVER-TRANS", exc)
+
+    try:
+        updated_ctx = load_silver_contexto_clima()
+        print(f"[CLIMA][Silver-Contexto] chaves={updated_ctx}")
+    except Exception as exc:
+        clima_ok = False
+        log_exception("CLIMA-SILVER-CTX", exc)
+
+    # Gold consolidado
+    try:
+        load_gold_clima_consolidado()
+        print("[CLIMA][Gold] Upsert OK")
+    except Exception as exc:
+        clima_ok = False
+        log_exception("CLIMA-GOLD", exc)
+
+    if not clima_ok:
+        # Não aborta o pipeline inteiro — sinaliza, mas deixa LIMBER/QUALITY/GOLD rodarem.
+        print("[CLIMA] Finalizado com falhas (ver logs acima).")
+    else:
+        print("[CLIMA] Fim OK")
+
+
+# -------------------------
+# LIMBER / QUALITY (inalterados)
+# -------------------------
 def run_limber_pipeline(today: date) -> None:
     print(f"[LIMBER] Início (dia={today.isoformat()})")
 
-    # Incremental simples e robusto: lê o DIA TODO e insere só o novo (dedupe por NRVOUCHER)
     rows = extract_limber_snapshot(start_date=today, end_date=today)
     inserted_bronze = load_limber_rows(rows)
     print(f"[LIMBER] Bronze _bronze.limber_acessos_raw: +{inserted_bronze}")
 
-    # Auto-healing: roda sempre (se tiver backlog, ele recupera)
     inserted_trans = bronze_to_silver_trans_limber()
     print(f"[LIMBER] Silver-trans s_limber_acesso: +{inserted_trans}")
 
@@ -90,11 +181,9 @@ def run_quality_pipeline(today: date) -> None:
     inserted_ctx = silver_trans_to_silver_contexto_fato_quality(source_file="sqlserver:quality")
     print(f"[QUALITY] Silver-contexto fato_acesso_quality: +{inserted_ctx}")
 
-
     # ---- métricas de validação (auditoria) ----
     with pg_connect(settings.pg_dsn()) as conn:
         with conn.cursor() as cur:
-            # total classificados como OUTROS na transacional
             cur.execute(
                 """
                 select count(*)
@@ -104,7 +193,6 @@ def run_quality_pipeline(today: date) -> None:
             )
             total_outros = cur.fetchone()[0]
 
-            # total ainda fora do contexto
             cur.execute(
                 """
                 select count(*)
@@ -115,6 +203,7 @@ def run_quality_pipeline(today: date) -> None:
                 """
             )
             faltantes_ctx = cur.fetchone()[0]
+
     print(
         "[QUALITY] Validação | "
         f"OUTROS(trans)={total_outros} | "
@@ -136,6 +225,17 @@ def main() -> int:
 
     limber_ok = True
     quality_ok = True
+    clima_ok = True
+
+    # ---- CLIMA (somente 08:00 e 17:00 SP, ou force_run) ----
+    try:
+        if should_run_clima(now):
+            run_clima_pipeline()
+        else:
+            print(f"[CLIMA] Skip (agora={now.isoformat()} não está no horário 08/17).")
+    except Exception as exc:
+        clima_ok = False
+        log_exception("CLIMA", exc)
 
     # ---- LIMBER ----
     try:
@@ -157,15 +257,15 @@ def main() -> int:
         print(f"[GOLD] Inseridos em _gold.fato_acessos: +{inserted_gold}")
     except Exception as exc:
         log_exception("GOLD", exc)
-        # Gold falhar não impede retornar código != 0 se preferir; aqui vamos sinalizar falha.
         return 2
 
-    if not limber_ok or not quality_ok:
+    if not limber_ok or not quality_ok or not clima_ok:
         print("[CODE3] Finalizado com falhas parciais (ver logs acima).")
         return 1
 
     print("[CODE3] Finalizado com sucesso.")
     return 0
+
 
 if __name__ == "__main__":
     raise SystemExit(main())

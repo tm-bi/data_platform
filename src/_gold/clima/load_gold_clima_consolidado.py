@@ -15,11 +15,11 @@ PREFERRED = "AccuWeather"  # ou 'Climatempo'
 
 def _connect():
     return psycopg2.connect(
-        host=settings.PG_HOST,
-        port=settings.PG_PORT,
-        user=settings.PG_USER,
-        password=settings.PG_PASSWORD,
-        dbname=settings.PG_DB,
+        host=settings.pg_host,
+        port=settings.pg_port,
+        user=settings.pg_user,
+        password=settings.pg_password,
+        dbname=settings.pg_db,
     )
 
 
@@ -42,7 +42,9 @@ def load_gold_clima_consolidado() -> None:
         END AS origem_norm,
 
         TRIM(REPLACE(REPLACE(cidade, ', SP', ''), ',SP', '')) AS cidade_norm,
-        UPPER(NULLIF(TRIM(uf), '')) AS uf_norm,
+
+        -- ⚠️ padroniza UF para evitar NULL em chave
+        COALESCE(UPPER(NULLIF(TRIM(uf), '')), 'SP') AS uf_norm,
 
         dt_forecast,
         dt_hr_scraping,
@@ -151,5 +153,9 @@ def load_gold_clima_consolidado() -> None:
             cur.execute(sql)
         conn.commit()
         LOGGER.info("[Gold Clima] Upsert executado com sucesso em _gold.fato_clima.")
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("[Gold Clima] Falha (rollback executado).")
+        raise
     finally:
         conn.close()

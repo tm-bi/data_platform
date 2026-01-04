@@ -1,15 +1,17 @@
 import logging
 from datetime import datetime, UTC
+
 import psycopg2
+from psycopg2.extras import execute_batch
 
 from src.common.settings import settings
 
-
 LOGGER = logging.getLogger(__name__)
-TABLE = "_bronze.clima_scraping_raw"
+TABLE = '_bronze.scraping_clima_raw'
 
 
 def _connect():
+    # Corrigido: nomes são minúsculos no Settings (pg_host, pg_port, ...)
     return psycopg2.connect(
         host=settings.PG_HOST,
         port=settings.PG_PORT,
@@ -37,20 +39,28 @@ def load_accuweather(rows: list[dict]) -> int:
             %(tempmin)s, %(tempmax)s, %(sensacao_termica)s,
             %(sensacao_sombra)s, %(ind_max_uv)s, %(vento)s,
             %(probab_chuva)s, %(relatorio)s,
-            'scrape_run', %(ingested_at)s
+            %(ingestion_type)s, %(ingested_at)s
         )
+        -- Se você tiver uma UNIQUE constraint para evitar duplicidade,
+        -- dá para habilitar isso:
+        -- ON CONFLICT DO NOTHING
     """
 
     now = datetime.now(UTC)
-
     for r in rows:
         r["ingested_at"] = now
+        r["ingestion_type"] = "scrape_run"
 
     conn = _connect()
     try:
         with conn.cursor() as cur:
-            cur.executemany(sql, rows)
+            # Mais eficiente e confiável que executemany em grandes lotes
+            execute_batch(cur, sql, rows, page_size=200)
         conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("[AccuWeather] Falha ao inserir na Bronze (rollback executado).")
+        raise
     finally:
         conn.close()
 

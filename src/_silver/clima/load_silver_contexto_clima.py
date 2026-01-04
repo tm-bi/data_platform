@@ -1,4 +1,5 @@
 import logging
+
 import psycopg2
 from psycopg2.extras import execute_values
 
@@ -75,7 +76,6 @@ def load_silver_contexto_clima() -> int:
         WHERE rn = 1
     """
 
-
     sql_upsert = f"""
         INSERT INTO {SILVER_CTX} (
             origem_dado, cidade, uf, dt_forecast,
@@ -129,21 +129,27 @@ def load_silver_contexto_clima() -> int:
                     bronze_id, ingestion_type, ingestion_batch
                 ) = r
 
-                payload.append((
-                    origem_dado, cidade, uf, dt_forecast,
-                    dt_hr_scraping, ingested_at,
-                    ttl_dias, bloco,
-                    temp_min_c, temp_max_c,
-                    sens_term, sens_sombra, uv,
-                    vento, prob_chuva, relato,
-                    id_silver, bronze_id, ingestion_type, ingestion_batch
-                ))
+                payload.append(
+                    (
+                        origem_dado, cidade, uf, dt_forecast,
+                        dt_hr_scraping, ingested_at,
+                        ttl_dias, bloco,
+                        temp_min_c, temp_max_c,
+                        sens_term, sens_sombra, uv,
+                        vento, prob_chuva, relato,
+                        id_silver, bronze_id, ingestion_type, ingestion_batch
+                    )
+                )
 
             execute_values(cur, sql_upsert, payload, page_size=3000)
-            conn.commit()
 
-            LOGGER.info(f"[Silver Contexto Clima] Upsert concluído ({len(payload)} chaves).")
-            return len(payload)
+        conn.commit()
+        LOGGER.info(f"[Silver Contexto Clima] Upsert concluído ({len(payload)} chaves).")
+        return len(payload)
 
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("[Silver Contexto Clima] Falha (rollback executado).")
+        raise
     finally:
         conn.close()
